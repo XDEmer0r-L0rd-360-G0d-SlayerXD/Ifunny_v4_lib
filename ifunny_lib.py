@@ -9,12 +9,14 @@ from pprint import pprint
 import logging
 import datetime
 import time
+import pickle
+import copy
 
 """
 I am trying to avoid putting too many parameters in functions. As such I have tried to take a more init object and then
 load parts approach. I also put effort to avoid spamming the servers with requests. Also some of the recursive things 
 could be slow and may be reworked, but unlikely unless it is crippling.
-Made by Nam. Discord: that_dude#7968, Github: XDEmer0r-L0rd-360-G0d-SlayerXD
+Made by Nam. Discord: that_dude#1313, Github: XDEmer0r-L0rd-360-G0d-SlayerXD
 """
 
 logger = logging.getLogger(__name__)
@@ -238,30 +240,66 @@ class Queue:
             for a in f.readlines():
                 self.store(self.stored_class_type(data=eval(a.strip())))
 
+
 class IfBase:
 
     def __init__(self, file_name: str = None):
-        self.cdata = {} if self.cdata is None else self.cdata
-        self.errored_attributes = []
+        try:
+            self.cdata = self.__getattribute__("cdata")
+        except AttributeError:
+            self.cdata = {}
+
+        self.errored_attributes = set()
+        self.data_attributes = ["cdata", 'errored_attributes']
         if not file_name:
             self.file_name = str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
         else:
             self.file_name = str(file_name)
         # print(type(str(self.file_name)))
 
+    def store_file_full(self, name: str = None):
+        """Uses alternative method to store all of object data. Maybe works a panic option.
+        :param name: File name/path to open
+        """
+        if not name:
+            name = self.file_name
+        with open(name, 'wb') as f:
+            pickle.dump(self, f)
+        logger.debug("Full store")
+
+    def load_file_full(self, name: str):
+        """Uses alternative method to store all of object data. Maybe works a panic option.
+        :param name: File name/path to open
+        """
+        if not name:
+            name = self.file_name
+        with open(name, 'rb') as f:
+            data = pickle.load(f)
+            print(data.__dict__['smiles'])
+            self.__dict__ = copy.deepcopy(data.__dict__)
+        logger.debug("Full load")
+
     def store_file(self, name: str = None):
         if not name:
             name = self.file_name
-        with open(name, 'w') as f:
-            f.write(str(self.cdata))
+        with open(name, 'wb') as f:
+            data = [self.__getattribute__(a) for a in self.data_attributes]
+            pickle.dump(data, f)
 
     def load_file(self, name: str):
         if not name:
             name = self.file_name
-        with open(name, "r") as f:
-            self.cdata = eval(f.read())
+        with open(name, "rb") as f:
+            data = pickle.load(f)
+            for num_a, a in enumerate(data):
+                if type(a) == Queue:
+                    logger.debug(num_a, self.data_attributes[num_a], a.stored_content)
+                self.__setattr__(self.data_attributes[num_a], a)
 
     def load_data(self, data: dict):
+        """
+        Probably unnecessary
+        """
         self.cdata = data
 
     def try_store_attribute(self, name: str, val: str):
@@ -271,7 +309,7 @@ class IfBase:
         try:
             self.__setattr__(name, self.cdata[val])
         except KeyError:
-            self.errored_attributes.append(name)
+            self.errored_attributes.add(name)
 
 
 class Comment(IfBase):
@@ -290,21 +328,27 @@ class Comment(IfBase):
         :param post_id: post id string
         :param comment_id: comment id string
         """
+
+        logger.info("Comment/Reply object created")
+
+        super().__init__(file_name)
+        self.data_attributes.extend(("smiles", 'replies'))
+
+        if file_name:
+            pass
+        else:
+            self.load_file(file_name)
         if post_id and comment_id:
             data = api_call(f'https://api.ifunny.mobi/v4/content/{post_id}/comments/{comment_id}',
-                                     auth=BASIC_TOKEN)
+                            auth=BASIC_TOKEN)
             self.cdata = self._data_cleaner(data)
         elif data:
             self.cdata = self._data_cleaner(data)
-        elif file_name:
-            self.load_file(file_name)
         elif not any((post_id, comment_id, data, file_name)):
             raise ValueError("need args")
-        logger.info("Comment/Reply object created")
-        super().__init__(file_name)
-        # for autocompletion purposes
-        self.post_id, self.id, self.stats, self.text = " "*4
+
         self.update_attributes()
+
         if not file_name and "id" not in self.errored_attributes:
             self.file_name = self.id + "_" + self.file_name
 
@@ -431,9 +475,9 @@ class Reply(Comment):
         Works in the same way as the Comment class, this is just a special case
         """
         super().__init__(post_id, comment_id, data, file_name)  # this should also auto clean the data being passed and stored
-        # for autocompletion purposes
-        self.depth, self.parent_comment_id, self.root_comment_id = " "*3
-        self.update_attributes()
+
+        if not file_name:
+            self.update_attributes()
 
     def update_attributes(self, data: dict = None):
 
@@ -458,25 +502,27 @@ class Post(IfBase):
         """
         logger.info("Post object created")
 
-        if post_id:
-            data = api_call("https://api.ifunny.mobi/v4/content/" + post_id, auth=BASIC_TOKEN)
-            # print(data)
-            self.cdata = self._data_cleaner(data)
-            # print(self.cdata)
-        elif data:
-            self.cdata = self._data_cleaner(data)
-        elif file_name:
-            self.load_file(file_name)
-        elif not any((post_id, data, file_name)):
-            raise ValueError("need args")
-
         super().__init__(file_name)
-        self.id, self.link, self.url, self.stats, self.type = " " * 5
+        self.data_attributes.extend(('comments', 'repubs', 'smiles'))
 
-        self.update_attributes()
+        if file_name:
+            self.load_file(file_name)
+        else:
+            if post_id:
+                data = api_call("https://api.ifunny.mobi/v4/content/" + post_id, auth=BASIC_TOKEN)
+                # print(data)
+                self.cdata = self._data_cleaner(data)
+                # print(self.cdata)
+            elif data:
+                self.cdata = self._data_cleaner(data)
+            elif not any((post_id, data, file_name)):
+                raise ValueError("need args")
 
-        if not file_name and "id" not in self.errored_attributes:
-            self.file_name = self.id + "_" + self.file_name
+            self.update_attributes()
+
+            if "id" not in self.errored_attributes:
+                self.file_name = self.id + "_" + self.file_name
+
 
     def update_attributes(self, data: dict = None):
 
@@ -524,7 +570,7 @@ class Post(IfBase):
                 return var
             elif "data" in var:
                 if "id" in var["data"]:
-                    print(var)
+                    logger.info(var)
                     return var["data"]
                 return var["data"]['content']['items'][0]
         elif type(var) == list:
@@ -584,24 +630,26 @@ class User(IfBase):
     def __init__(self, creator_id: str = None, data: dict = None, file_name: str = None):
         logger.info("Creator object created")
 
-        if creator_id:
-            data = api_call(f"https://api.ifunny.mobi/v4/users/" + creator_id, auth=BASIC_TOKEN)
-            cdata = self._data_cleaner(data)
-            self.cdata = cdata
-        if data:
-            cdata = self._data_cleaner(data)
-            self.cdata = cdata
-        elif file_name:
-            self.load_file(file_name)
-        elif not any((creator_id, data, file_name)):
-            raise ValueError("need args")
-
         super().__init__(file_name)
-        # for autocompletion purposes
-        self.web_url, self.about, self.id, self.name, self.stats, self.total_posts = " "*6
-        self.update_attributes()
-        if not file_name and "id" not in self.errored_attributes:
-            self.file_name = self.id + "_" + self.file_name
+        self.data_attributes.extend(('posts', 'subscriptions', 'subscribers'))
+
+        if file_name:
+            self.load_file(file_name)
+        else:
+            if creator_id:
+                data = api_call(f"https://api.ifunny.mobi/v4/users/" + creator_id, auth=BASIC_TOKEN)
+                cdata = self._data_cleaner(data)
+                self.cdata = cdata
+            if data:
+                cdata = self._data_cleaner(data)
+                self.cdata = cdata
+            elif not any((creator_id, data, file_name)):
+                raise ValueError("need args")
+
+            self.update_attributes()
+
+            if not file_name and "id" not in self.errored_attributes:
+                self.file_name = self.id + "_" + self.file_name
 
     def update_attributes(self, data: dict = None):
 
@@ -678,17 +726,21 @@ class Account(IfBase):
 
     def __init__(self, data: dict = None, file_name: str = None):
 
-        if data:
-            self.cdata = data
-        elif file_name:
+        super().__init__(file_name)
+        self.data_attributes.extend(('posts', 'subscriptions', 'subscribers', 'comments', 'guests', 'blocked', 'smiles', 'sub_feed'))
+
+        if file_name:
             self.load_file(file_name)
         else:
-            self.cdata = api_call(url=f"https://api.ifunny.mobi/v4/account", auth=BEARER_TOKEN, params={"limit": 1})['data']
-        super().__init__(file_name)
-        self.update_attributes()
-        self.about, self.id, self.name, self.stats, self.web_url = ""*5
-        if not file_name and "id" not in self.errored_attributes:
-            self.file_name = self.id + "_" + self.file_name
+            if data:
+                self.cdata = data
+            else:
+                self.cdata = api_call(url=f"https://api.ifunny.mobi/v4/account", auth=BEARER_TOKEN, params={"limit": 1})['data']
+
+            self.update_attributes()
+
+            if not file_name and "id" not in self.errored_attributes:
+                self.file_name = self.id + "_" + self.file_name
 
     def update_attributes(self, data: dict = None):
 
@@ -782,7 +834,7 @@ def get_bearer(basic_token: str, email: str, password: str) -> str:
         raise KeyError
 
 
-def load_auths(identifier: str = None, email: str = None, password: str = None, force: bool = False) -> None:
+def load_auths(identifier: str = None, email: str = None, password: str = None, force: bool = False, file: str = 'auth_data') -> None:
     """
     This will set Basic and Bearer global vars by generating them and then saving them to file, or reading from file.
     If read from file, no prams are needed
@@ -799,9 +851,9 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
     """
     logger.info("running login function")
     global BASIC_TOKEN, BEARER_TOKEN
-    if os.path.isfile("auth_data") and not force:
+    if os.path.isfile(file) and not force:
         # load tokens from file
-        with open("auth_data", "r") as f:
+        with open(file, "r") as f:
             thing = eval(f.read())
         BASIC_TOKEN = thing["Basic"]
         BEARER_TOKEN = thing["Bearer"]
@@ -814,7 +866,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
         exit()
     BASIC_TOKEN = get_basic(identifier=identifier)
     BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
-    with open("auth_data", "w") as f:
+    with open(file, "w") as f:
         f.write(str({"Basic": BASIC_TOKEN, "Bearer": BEARER_TOKEN}))
     return
 

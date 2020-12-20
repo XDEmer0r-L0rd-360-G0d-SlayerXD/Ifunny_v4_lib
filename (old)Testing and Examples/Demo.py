@@ -16,7 +16,8 @@ def goto_dir(dir: str):
 
 
 print("With no custom control yet I'm limiting the saves to single posts for now. It will save everything except for the pics from pic comments. Also max speed is about 50 items/s")
-url = input("Post Url>")
+# url = input("Post Url>")
+url = 'https://ifunny.co/picture/imagine-being-so-disgusting-there-have-to-be-laws-to-tjSsxSDC8?gallery=user&query=Kewl'
 start = time.time()
 ifl.BASIC_TOKEN = "Basic MTIzNDU2Nzg5MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTJfTXNPSUozOVEyODphNmMzN2ZmYjY2MWUzNzEzMDEwODQxNzI0ZTVmZTA4ZjUzNGZhMThm"
 
@@ -56,4 +57,4 @@ with open("Comments.txt", "w", encoding='utf-16') as f:
         f.writelines(["  " * b.depth + b.creator_name + ": " + b.text + '\n' for b in a.replies])
 print("Saved Comments")
 
-ctypes.windll.user32.MessageBoxW(0, f"Done in {time.time() - start}s", "Your title", 0)
+print(ctypes.windll.user32.MessageBoxW(0, f"Done in {time.time() - start}s", "Your title", 0x00001000))
