@@ -1,9 +1,13 @@
 import os
 import ifunny_lib as ifl
 
+"""
+This test is designed to save a post and see if it loads properly on the next run
+"""
+
 
 def main():
-    ifl.load_auths(file="../auth_data")
+    ifl.load_auths(email="my@email.com", password="password", file='auth_data')
     if not os.path.exists("post_data"):
         print(1, "downloading")
         post = ifl.post_from_url("https://ifunny.co/picture/what-what-what-the-away-fuck-the-fuck-fuck-b9qpWE0E8?gallery=user&query=PieceOfBread")

@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.WARNING)
 
 # basic token needs to be set for most commands, bearer is for things that need a login
-# these need to be changed
+# these need to be changed. Use load_auths() to do so
 # Things will go wrong if you don't.
 BASIC_TOKEN = ""
 BEARER_TOKEN = ""
@@ -55,6 +55,7 @@ class Queue:
         :param tag_only_mode: If given, it will only store that attribute from the data in the list
         :param force_load: force load from id to ensure consistency of content. May lose or gain data.
         """
+        # todo maybe make this inheret from list to give more functionality via __*__
 
         logger.info("Queue object created")
 
@@ -812,7 +813,7 @@ def get_basic(identifier: str = None) -> str:
 def get_bearer(basic_token: str, email: str, password: str) -> str:
     """
     Basically logs in to generate a Bearer token. As this is equivalent to a login, it is recommended to save token to
-    avoid calling this many times. It is recomended to call load_auths() instead.
+    avoid calling this many times. It is recommended to call load_auths() instead.
     :param basic_token: an identification Basic token, use get_basic() to get one
     :type basic_token: str
     :param email: Ifunny account email
@@ -824,12 +825,13 @@ def get_bearer(basic_token: str, email: str, password: str) -> str:
     """
     headers = {"Authorization": basic_token}
     data = {"username": email, "password": password, "grant_type": "password"}
+    # print(headers, data)
     response = requests.post("https://api.ifunny.mobi/v4/oauth2/token", headers=headers, data=data)
     thing = response.json()
     try:
         return "Bearer " + thing["access_token"]
     except KeyError:
-        print("Something went wrong")
+        print("Something went wrong (Expected if generating new login)")
         print(response.content)
         raise KeyError
 
@@ -852,6 +854,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
     logger.info("running login function")
     global BASIC_TOKEN, BEARER_TOKEN
     if os.path.isfile(file) and not force:
+        # todo change this to json?
         # load tokens from file
         with open(file, "r") as f:
             thing = eval(f.read())
@@ -865,7 +868,12 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
         os.system("pause")
         exit()
     BASIC_TOKEN = get_basic(identifier=identifier)
-    BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
+    try:
+        BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
+    except KeyError:
+        logger.warning("New bearer, 10s login delay")
+        time.sleep(10)
+        BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
     with open(file, "w") as f:
         f.write(str({"Basic": BASIC_TOKEN, "Bearer": BEARER_TOKEN}))
     return
@@ -977,7 +985,6 @@ def post_from_id(post_id: str) -> Post:
 def recursive_id_print(base_comment, target: tuple, indent_scale: int = 3, current_indent: int = 0) -> None:
     """
     A function used to try to cleanly print all replies in the correct nested way
-    todo fill these in
     :param base_comment: The anchor comment for this branch
     :param target: What gets attached
     :param indent_scale: How big is the indent
@@ -1067,5 +1074,5 @@ def get_collective(limit: int = 0) -> Queue:
     return collective
 
 """
-Made by Nam. Discord: that_dude#7968, Github: XDEmer0r-L0rd-360-G0d-SlayerXD
+Made by Nam. Discord: that_dude#1313, Github: XDEmer0r-L0rd-360-G0d-SlayerXD
 """
