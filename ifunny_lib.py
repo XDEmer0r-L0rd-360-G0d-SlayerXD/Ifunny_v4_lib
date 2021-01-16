@@ -878,7 +878,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
         # todo change this to json?
         # load tokens from file
         with open(file, "r") as f:
-            thing = eval(f.read())
+            thing = json.load(f)
         BASIC_TOKEN = thing["Basic"]
         BEARER_TOKEN = thing["Bearer"]
         return
@@ -891,7 +891,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
     BASIC_TOKEN = get_basic(identifier=identifier)
     BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
     with open(file, "w") as f:
-        f.write(str({"Basic": BASIC_TOKEN, "Bearer": BEARER_TOKEN}))
+        json.dump({"Basic": BASIC_TOKEN, "Bearer": BEARER_TOKEN}, f)
     return
 
 
