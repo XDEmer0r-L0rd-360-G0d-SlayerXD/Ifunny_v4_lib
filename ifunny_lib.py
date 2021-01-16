@@ -35,6 +35,13 @@ class MissingAuthToken(Exception):
     """
 
 
+class ExpiredBasicToken(Exception):
+    """
+    Exists only to say that the basic token used to gen the bearer can't
+    """
+    pass
+
+
 class NoContent(Exception):
     """
     There was an error when searching for the content and the api returned an error.
@@ -795,6 +802,7 @@ class Account(IfBase):
 def get_basic(identifier: str = None) -> str:
     """
     This is used to get a working Basic token. This should be used to set the global BASIC_TOKEN var if one is needed.
+    Basic token can only gen one bearer
     :param identifier: If not set, identifier will be a random 32 len string? It should work no matter what it is.
     :return: A prepared Basic token which can now directly be used in headers.
     """
@@ -814,6 +822,7 @@ def get_bearer(basic_token: str, email: str, password: str) -> str:
     """
     Basically logs in to generate a Bearer token. As this is equivalent to a login, it is recommended to save token to
     avoid calling this many times. It is recommended to call load_auths() instead.
+    It is assumed that this only gets called when a new one is needed
     :param basic_token: an identification Basic token, use get_basic() to get one
     :type basic_token: str
     :param email: Ifunny account email
@@ -829,17 +838,29 @@ def get_bearer(basic_token: str, email: str, password: str) -> str:
     response = requests.post("https://api.ifunny.mobi/v4/oauth2/token", headers=headers, data=data)
     thing = response.json()
     try:
+        if 'error' in thing:
+            if thing['error_description'] == 'Forbidden':
+                logger.warning("New bearer, 10s login delay")
+                time.sleep(10)
+                response = requests.post("https://api.ifunny.mobi/v4/oauth2/token", headers=headers, data=data)
+                thing = response.json()
+            elif thing['error_description'] == 'Your installation was banned':
+                raise ExpiredBasicToken
         return "Bearer " + thing["access_token"]
     except KeyError:
-        print("Something went wrong (Expected if generating new login)")
+        print("Something went wrong")
         print(response.content)
         raise KeyError
 
 
-def load_auths(identifier: str = None, email: str = None, password: str = None, force: bool = False, file: str = 'auth_data') -> None:
+def load_auths(identifier: str = None, email: str = None, password: str = None, new_login: bool = False, file: str = 'auth_data') -> None:
     """
     This will set Basic and Bearer global vars by generating them and then saving them to file, or reading from file.
     If read from file, no prams are needed
+    notes:
+    After basic is used to make bearer, it can't be used again
+    Basic token needs to be used once first by nothing but the same get bearer
+    I assume that email and pass are correct. I cannot properly check for bad login
     :param identifier: Used by servers to identify device, useful if consistency is needed. Always optional.
     :type identifier: str
     :param email: Ifunny account login email
@@ -853,7 +874,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
     """
     logger.info("running login function")
     global BASIC_TOKEN, BEARER_TOKEN
-    if os.path.isfile(file) and not force:
+    if os.path.isfile(file) and not new_login:
         # todo change this to json?
         # load tokens from file
         with open(file, "r") as f:
@@ -868,12 +889,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
         os.system("pause")
         exit()
     BASIC_TOKEN = get_basic(identifier=identifier)
-    try:
-        BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
-    except KeyError:
-        logger.warning("New bearer, 10s login delay")
-        time.sleep(10)
-        BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
+    BEARER_TOKEN = get_bearer(BASIC_TOKEN, email=email, password=password)
     with open(file, "w") as f:
         f.write(str({"Basic": BASIC_TOKEN, "Bearer": BEARER_TOKEN}))
     return
@@ -906,7 +922,7 @@ def api_call(url: str, auth: str = None, params: dict = None, method="GET") -> d
     :rtype: dict
     """
     logger.debug("making api call")
-    if auth is None:
+    if auth is None or auth == "":
         raise MissingAuthToken()
     header_thing = {'Authorization': auth}
     # print(params)
