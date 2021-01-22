@@ -223,19 +223,21 @@ class Queue:
         """
         This will load objects until enough matching id's are found. Ideally for loading until old content in found.
         """
-        pointer = 0  # shows what we are looking at in stored_content
+        pointer = len(self.stored_content)  # shows what we are looking at in stored_content
         while needed_matches > 0 and emergency_limit != 0:
             self.load_next(limit=self.chunks)
             for a in self.stored_content[pointer:]:
-                if a.id in ids:
+                if needed_matches <= 0:
+                    continue
+                elif a.id in ids:
                     needed_matches -= 1
                     if not include_matches:
-                        self.stored_content.remove(pointer)
+                        self.stored_content.pop(pointer)
                         pointer -= 1
                 pointer += 1
             emergency_limit -= 1
         if clean_overflow:
-            self.stored_content = self.stored_content[:min(pointer + 1, len(self.stored_content))]
+            self.stored_content = self.stored_content[:min(pointer, len(self.stored_content))]
         return self
 
     def save_to_file(self, file_name: str = None):
@@ -1037,6 +1039,7 @@ def get_author_id(text: str, search_limit: int = 1):
     if text.__contains__("ifunny."):
         """
         When using a url to profile, find author_id in page
+        todo add a try/except for bad username
         """
         request = requests.get(text)
         # print(text)
