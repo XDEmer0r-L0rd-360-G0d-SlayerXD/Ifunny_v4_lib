@@ -86,7 +86,7 @@ def comment_test():
     example_post.load_comment_tree(comments=20, reply_limit=300)
     # logger.info("loaded comment tree")
     # ifl.recursive_id_print(example_post, example_post.comment_id_tree())
-    assert len(example_post.comment_id_tree()[0]) > 1
+    assert len(example_post.comments) >= 1
 
     # test loading from a comment
     example_comment = ifl.Comment(post_id="NSRM3Edh7", comment_id='5ed3d6beec57403d3d034ce7')
@@ -96,9 +96,9 @@ def comment_test():
     # ifl.recursive_id_print(example_comment, example_comment.id_tree())
     # print(example_comment.replies)
     assert did_load
-    assert len(example_comment.id_tree()[1]) > 5
+    assert len(example_comment.replies) >= 1
     print("seems to find, populate, and parse comments correctly")
-    pprint(example_comment.tree())
+    # pprint(example_comment.tree())
     # view = example_comment.has_id_object('5ed5dedad00afe765e3b68fc')
     # print(view.text)
 
@@ -109,8 +109,8 @@ def get_post_info_and_comments():
     # ifl.load_auths() already ran
     # print(ifl.post_from_url('https://ifunny.co/picture/me-when-i-see-animals-hurting-people-see-people-aro-GXxybkXN7?gallery=featured').post_id) returned GXxybkXN7
     example_post = ifl.post_from_id('GXxybkXN7')
-    example_post.load_comment_tree(limit=2, reply_limit=1)
-    id_tree = example_post.comment_id_tree()
+    example_post.load_comment_tree(comments=2, reply_limit=1)
+    # id_tree = example_post.comment_id_tree()
     # print(id_tree)
     # print(example_post)
     # ifl.recursive_id_print(example_post, id_tree)
@@ -240,25 +240,25 @@ def endpoint_test():
 
 
 def main():
-    ifl.load_auths(email="email", password="pass")  # only needed when auth_test() is not run
+    # ifl.load_auths(email="email", password="pass")  # only needed when auth_test() is not run
 
-    # auth_test()
-    # post_test()
-    # comment_comaprison()
-    # comment_test()
-    # get_post_info_and_comments()
-    # get_author_id()
-    # auth_info()
-    # # time(auth_info)
-    # basic_queue_loading()
-    # get_subscriptions()
-    # user_vs_account()
-    # deleted_comment()
-    # kill_bearer_func()
-    # denester()
-    # endpoint_test()
-    # print(ifl.BEARER_TOKEN)
-    # print(ifl.BASIC_TOKEN)
+    auth_test()
+    post_test()
+    comment_comaprison()
+    comment_test()
+    get_post_info_and_comments()
+    get_author_id()
+    auth_info()
+    # time(auth_info)
+    basic_queue_loading()
+    get_subscriptions()
+    user_vs_account()
+    deleted_comment()
+    kill_bearer_func()
+    denester()
+    endpoint_test()
+    print(ifl.BEARER_TOKEN)
+    print(ifl.BASIC_TOKEN)
 
 
 if __name__ == '__main__':

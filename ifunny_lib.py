@@ -42,6 +42,13 @@ class ExpiredBasicToken(Exception):
     pass
 
 
+class InvalidGrant(Exception):
+    """
+    Exists for when the auth used isn't good enough
+    """
+    pass
+
+
 class NoContent(Exception):
     """
     There was an error when searching for the content and the api returned an error.
@@ -257,7 +264,7 @@ class IfBase:
         except AttributeError:
             self.cdata = {}
 
-        self.errored_attributes = set()
+        self.errored_attributes = []
         self.data_attributes = ["cdata", 'errored_attributes']
         if not file_name:
             self.file_name = str(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -317,7 +324,7 @@ class IfBase:
         try:
             self.__setattr__(name, self.cdata[val])
         except KeyError:
-            self.errored_attributes.add(name)
+            self.errored_attributes.append(name)
 
 
 class Comment(IfBase):
@@ -343,17 +350,16 @@ class Comment(IfBase):
         self.data_attributes.extend(("smiles", 'replies'))
 
         if file_name:
-            pass
-        else:
             self.load_file(file_name)
-        if post_id and comment_id:
-            data = api_call(f'https://api.ifunny.mobi/v4/content/{post_id}/comments/{comment_id}',
-                            auth=BASIC_TOKEN)
-            self.cdata = self._data_cleaner(data)
-        elif data:
-            self.cdata = self._data_cleaner(data)
-        elif not any((post_id, comment_id, data, file_name)):
-            raise ValueError("need args")
+        else:
+            if post_id and comment_id:
+                data = api_call(f'https://api.ifunny.mobi/v4/content/{post_id}/comments/{comment_id}',
+                                auth=BASIC_TOKEN)
+                self.cdata = self._data_cleaner(data)
+            elif data:
+                self.cdata = self._data_cleaner(data)
+            elif not any((post_id, comment_id, data, file_name)):
+                raise ValueError("need args")
 
         self.update_attributes()
 
@@ -861,6 +867,7 @@ def load_auths(identifier: str = None, email: str = None, password: str = None, 
     After basic is used to make bearer, it can't be used again
     Basic token needs to be used once first by nothing but the same get bearer
     I assume that email and pass are correct. I cannot properly check for bad login
+    Bearer can only load account once
     :param identifier: Used by servers to identify device, useful if consistency is needed. Always optional.
     :type identifier: str
     :param email: Ifunny account login email
@@ -926,12 +933,17 @@ def api_call(url: str, auth: str = None, params: dict = None, method="GET") -> d
         raise MissingAuthToken()
     header_thing = {'Authorization': auth}
     # print(params)
+    response = None
     try:
         response = requests.request(method, url, headers=header_thing, params=params)
         parsed = json.loads(response.content)
         if 'error' in parsed:
-            raise KeyError
-    except:
+            if parsed['error'] == 'invalid_grant':
+                logger.error(response.content)
+                raise InvalidGrant
+            else:
+                raise KeyError
+    except KeyError:
         logger.warning('error/exception in api_call')
         try:
             response = requests.request(method, url, headers=header_thing, params=params)
@@ -951,6 +963,8 @@ def api_call(url: str, auth: str = None, params: dict = None, method="GET") -> d
                 print(url)
                 if response:
                     print(response.content)
+                else:
+                    print('response is None')
                 raise NoContent
     return parsed
 
