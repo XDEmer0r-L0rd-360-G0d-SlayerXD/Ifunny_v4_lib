@@ -219,11 +219,14 @@ class Queue:
         self.load(limit, self.page_next)
         return self
 
-    def load_until(self, ids: tuple = (), needed_matches: int = 1, include_matches: bool = True, emergency_limit: int = -1, clean_overflow: bool = True):
+    def load_until(self, ids: set = None, needed_matches: int = 1, include_matches: bool = False, emergency_limit: int = -1, clean_overflow: bool = True):
         """
         This will load objects until enough matching id's are found. Ideally for loading until old content in found.
+        todo make emergency limit nicer to work with
         """
         pointer = len(self.stored_content)  # shows what we are looking at in stored_content
+        if not ids:
+            ids = set()
         while needed_matches > 0 and emergency_limit != 0:
             self.load_next(limit=self.chunks)
             for a in self.stored_content[pointer:]:
@@ -239,6 +242,9 @@ class Queue:
         if clean_overflow:
             self.stored_content = self.stored_content[:min(pointer, len(self.stored_content))]
         return self
+
+    def get_ids(self):
+        return set([a.id for a in self.stored_content])
 
     def save_to_file(self, file_name: str = None):
         if not file_name:
