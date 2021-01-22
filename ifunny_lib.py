@@ -1045,9 +1045,10 @@ def get_author_id(text: str, search_limit: int = 1):
     if text.__contains__("ifunny."):
         """
         When using a url to profile, find author_id in page
-        todo add a try/except for bad username
         """
         request = requests.get(text)
+        if request.status_code == 404:
+            raise NoContent
         # print(text)
         # print(request.text)
         tree = html.fromstring(request.content)
